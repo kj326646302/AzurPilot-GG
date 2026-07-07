@@ -1,5 +1,15 @@
 
-# AzurPilot — 碧蓝航线自动化辅助工具
+# AzurPilot-GG — 碧蓝航线自动化辅助工具
+
+> ## ⚠️ 请勿使用 / DO NOT USE
+>
+> **本仓库是个人实验性分支，仅供本人学习与研究，请勿使用、请勿传播、请勿下载运行。**
+>
+> - 本分支在上游 [wess09/AzurPilot](https://github.com/wess09/AzurPilot) 基础上加入了 GG 倍率 / Frida 动态注入 / 去除困难限制等**高风险外挂性质功能**，使用可能导致**游戏账号封禁**。
+> - 相关功能仅为技术研究，作者**不对任何后果负责**，也**不提供任何支持**。
+> - 如需正常自动化脚本，请使用上游原版 [wess09/AzurPilot](https://github.com/wess09/AzurPilot) 或 [LmeSzinc/AzurLaneAutoScript](https://github.com/LmeSzinc/AzurLaneAutoScript)。
+>
+> **This is a private experimental fork for personal research only. Do NOT use, distribute, or run it. High-risk game-modification features included; use may result in account bans. No support, no warranty.**
 
 <p align="center">
   <a href="README.md"><img src="https://img.shields.io/badge/简体中文-中文-blue?style=flat-square" alt="简体中文"></a>

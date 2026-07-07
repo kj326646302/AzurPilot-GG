@@ -623,6 +623,10 @@ EventStory:
       option: [true]
       option_bold: [true]
 
+# ==================== GGHandler ====================
+GGHandler:
+  Timeout: 120
+
 # ==================== Dashboard ====================
 Dashboard:
   Oil:

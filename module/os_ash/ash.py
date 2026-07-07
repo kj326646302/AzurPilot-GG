@@ -94,6 +94,11 @@ class AshCombat(Combat):
         Returns:
             bool: 是否采取了行动。
         """
+        if self.appear(BATTLE_PREPARATION, offset=(20, 20)):
+            # Power limit check
+            from module.gg_handler.gg_handler import GGHandler
+            GGHandler(config=self.config, device=self.device).power_limit('Ash')
+
         if super().handle_battle_preparation():
             return True
 

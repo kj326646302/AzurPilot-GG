@@ -482,6 +482,8 @@ Tool:
       - AzurLaneUncensored
     GameManager:
       - GameManager
+      - GGHandler
+      - PowerLimit
     EmulatorManager:
       - EmulatorManager
 Dashboard:

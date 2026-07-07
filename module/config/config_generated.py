@@ -1031,6 +1031,23 @@ class GeneratedConfig:
     # 配置组 `GameManager`
     GameManager_AutoRestart = True
 
+    # 配置组 `GGHandler`
+    GGHandler_Enabled = False
+    GGHandler_GGMethod = 'u2'  # u2
+    GGHandler_RestartATX = False
+    GGHandler_GGPackageName = 'com.'
+    GGHandler_AutoRestartGG = False
+    GGHandler_RestartEverytime = True
+    GGHandler_RepushLua = True
+    GGHandler_GGMultiplyingFactor = 200
+    GGHandler_Timeout = 120
+    GGHandler_DisabledTask = 'disable_all_dangerous_task'  # disable_all_dangerous_task, disable_guild_and_dangerous, disable_meta_and_exercise, disable_exercise, enable_all
+
+    # 配置组 `PowerLimit`
+    PowerLimit_Exercise = 16500
+    PowerLimit_Raid = 16500
+    PowerLimit_Ash = 16500
+
     # 配置组 `EmulatorManagement`
     EmulatorManagement_ScheduledEmulatorRestart = False
     EmulatorManagement_ForceScheduledRestart = False

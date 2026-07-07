@@ -43,6 +43,7 @@ from module.map.assets import *
 from module.ui.assets import *
 from module.ui.page import page_campaign_menu
 from module.ui.ui import UI
+from module.gg_handler.gg_handler import GGHandler
 
 
 # 应用重启恢复策略：3 次启动失败后进入观察阶段，观察期间仍无恢复则
@@ -101,7 +102,7 @@ class LoginHandler(UI):
             GameNotRunningError: 游戏未运行。
         """
         logger.hr('应用登录')
-
+        GGHandler(config=self.config, device=self.device).handle_restart()
         confirm_timer = Timer(1.5, count=4).start()
         orientation_timer = Timer(5)
         login_success = False

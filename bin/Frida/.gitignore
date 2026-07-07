@@ -1,0 +1,5 @@
+daemon.log
+daemon.log.old
+daemon.pid
+*.pyc
+__pycache__/
