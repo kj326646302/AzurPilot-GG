@@ -3,6 +3,7 @@ log
 cache/
 .codex
 config/backup/*
+config/gg_handler/
 config/*.ini
 !config/template.ini
 config/*.yaml

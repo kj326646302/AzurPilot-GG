@@ -7,7 +7,7 @@ IMAGE=${IMAGE:-alas:py314}
 CONTAINER=${CONTAINER:-alas}
 TAILSCALE_IP=${TAILSCALE_IP:-100.88.23.89}
 OLD_SHA=$(git -C "$APP_DIR" rev-parse HEAD)
-BACKUP_DIR="$APP_DIR/.deploy-backup"
+BACKUP_DIR=${BACKUP_DIR:-/var/lib/azurpilot-gg/backup}
 
 mkdir -p "$BACKUP_DIR"
 cp -f "$APP_DIR/config/deploy.yaml" "$BACKUP_DIR/deploy.yaml" 2>/dev/null || true
