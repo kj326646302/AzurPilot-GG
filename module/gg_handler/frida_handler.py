@@ -44,27 +44,33 @@ class FridaHandler:
         if not os.path.exists(PIDFILE):
             return False
         try:
-            with open(PIDFILE) as f:
+            with open(PIDFILE, encoding="utf-8") as f:
                 pid = int(f.read().strip())
-        except Exception:
+        except (OSError, ValueError):
             return False
         try:
-            out = subprocess.check_output(
-                ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
-                stderr=subprocess.STDOUT, timeout=5,
-            )
-            return str(pid).encode() in out
-        except Exception:
+            if os.name == "nt":
+                out = subprocess.check_output(
+                    ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                    stderr=subprocess.STDOUT, timeout=5,
+                )
+                return str(pid).encode() in out
+            os.kill(pid, 0)
+            return True
+        except (OSError, subprocess.SubprocessError):
             return False
 
     def _find_game_pid(self):
         """通过 adb 拿游戏主进程 PID"""
         try:
             serial = getattr(self.device, "serial", "127.0.0.1:7555")
-            adb = os.path.join(
-                os.path.abspath("."),
-                "toolkit", "Lib", "site-packages", "adbutils", "binaries", "adb.exe"
-            )
+            adb = os.environ.get("ALASGG_ADB") or shutil.which("adb")
+            if not adb:
+                bundled = os.path.join(
+                    os.path.abspath("."),
+                    "toolkit", "Lib", "site-packages", "adbutils", "binaries", "adb.exe"
+                )
+                adb = bundled if os.path.exists(bundled) else "adb"
             out = subprocess.check_output(
                 [adb, "-s", serial, "shell", "pidof", "com.bilibili.azurlane"],
                 stderr=subprocess.STDOUT, timeout=5,
@@ -102,18 +108,24 @@ class FridaHandler:
         env = os.environ.copy()
         env["ALASGG_ADB_SERIAL"] = getattr(self.device, "serial", "127.0.0.1:7555")
 
-        # Windows DETACHED_PROCESS=0x00000008  CREATE_NEW_PROCESS_GROUP=0x00000200
-        CREATE_FLAGS = 0x00000008 | 0x00000200
+        popen_kwargs = {
+            "cwd": FRIDA_DIR,
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+            "stdin": subprocess.DEVNULL,
+            "env": env,
+            "close_fds": True,
+        }
+        if os.name == "nt":
+            # Windows DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            popen_kwargs["creationflags"] = 0x00000008 | 0x00000200
+        else:
+            # Linux 容器中脱离 WebUI 的会话组，避免重载时误杀 keepalive。
+            popen_kwargs["start_new_session"] = True
         try:
             p = subprocess.Popen(
                 [SYS_PYTHON, INJECT_PY, str(game_pid)],
-                cwd=FRIDA_DIR,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                stdin=subprocess.DEVNULL,
-                creationflags=CREATE_FLAGS,
-                env=env,
-                close_fds=True,
+                **popen_kwargs,
             )
             logger.info(f"[Frida] inject spawned, pid={p.pid}, target game pid={game_pid}")
             # 等 hook 装上 (最长 30s, 实际通常 1-3s)

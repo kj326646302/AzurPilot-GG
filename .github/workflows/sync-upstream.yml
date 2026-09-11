@@ -1,0 +1,44 @@
+name: Sync upstream safely
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-upstream-alasgg-features
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout GG branch
+        uses: actions/checkout@v4
+        with:
+          ref: alasgg-features
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "AzurPilot-GG Sync"
+          git config user.email "alasgg-sync@users.noreply.github.com"
+          git remote add upstream https://github.com/wess09/AzurPilot.git || true
+          git fetch upstream master --prune
+
+      - name: Rebase GG commits onto upstream
+        run: git rebase upstream/master
+
+      - name: Validate Python sources and GG assets
+        run: |
+          python -m compileall -q module bin/Frida
+          test -f bin/Lua/Multiplier.lua
+          test -f bin/Frida/inject.py
+          test -f bin/Frida/remove_hard_limit.js
+          ! git grep -nE '^(<<<<<<<|=======|>>>>>>>)'
+
+      - name: Publish only after successful validation
+        run: git push --force-with-lease origin HEAD:alasgg-features

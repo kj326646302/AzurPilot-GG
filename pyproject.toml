@@ -33,6 +33,7 @@ dependencies = [
     "chardet==5.1.0",
     "matplotlib==3.11.0",
     "pycryptodome==3.23.0",
+    "frida>=17.2.17,<18",
     "typing-extensions>=4.15.0",
     "pydantic>=2.12.5",
     "rapidocr==3.9.0",
