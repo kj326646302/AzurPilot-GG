@@ -13,7 +13,7 @@ class GGU2(Base):
         self.config = config
         self.device = device
         self.d = u2.connect(self.device.serial)
-        self.gg_package_name = deep_get(self.config.data, keys='GameManager.GGHandler.GGPackageName')
+        self.gg_package_name = deep_get(self.config.data, keys='GGManager.GGHandler.GGPackageName')
         self.d.wait_timeout = 10.0
 
     def exit(self):
@@ -128,7 +128,7 @@ class GGU2(Base):
         _set = False
         _confirmed = False
         import os
-        _repush = deep_get(self.config.data, keys='GameManager.GGHandler.RepushLua')
+        _repush = deep_get(self.config.data, keys='GGManager.GGHandler.RepushLua')
         if _repush:
             # os.popen(f'"toolkit/Lib/site-packages/adbutils/binaries/adb.exe" -s'
             #          f' {self.device.serial} shell mkdir /sdcard/Notes')

@@ -30,10 +30,10 @@ class GGData(ModuleBase):
             tmp.write('gg_on=False\n')
             self.ggdata['gg_on'] = False
             self.ggdata['gg_enable'] = deep_get(d=self.config.data,
-                                                keys='GameManager.GGHandler.Enabled',
+                                                keys='GGManager.GGHandler.Enabled',
                                                 default=False)
             self.ggdata['gg_auto'] = deep_get(d=self.config.data,
-                                              keys='GameManager.GGHandler.AutoRestartGG',
+                                              keys='GGManager.GGHandler.AutoRestartGG',
                                               default=False)
             tmp.write('gg_enable=' + str(self.ggdata['gg_enable']) + '\n')
             tmp.write('gg_auto=' + str(self.ggdata['gg_auto']) + '\n')
