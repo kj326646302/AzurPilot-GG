@@ -414,6 +414,10 @@
       "name": "Game Manager (Incomplete)",
       "help": ""
     },
+    "GGManager": {
+      "name": "GG Manager",
+      "help": "Configure GG multiplier, automatic restart, and sensitive-task safeguards"
+    },
     "EmulatorManager": {
       "name": "Emulator Manager",
       "help": "Provides an entry point for manually restarting the emulator."

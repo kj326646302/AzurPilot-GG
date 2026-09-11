@@ -150,6 +150,7 @@
       "OcrBenchmark",
       "AzurLaneUncensored",
       "GameManager",
+      "GGManager",
       "EmulatorManager"
     ]
   }

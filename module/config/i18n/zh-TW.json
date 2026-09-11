@@ -414,6 +414,10 @@
       "name": "遊戲管理器(未完成)",
       "help": ""
     },
+    "GGManager": {
+      "name": "GG 管理器",
+      "help": "設定 GG 倍率、自動重啟和敏感任務保護"
+    },
     "EmulatorManager": {
       "name": "模擬器管理器",
       "help": "提供手動重啟模擬器的入口"

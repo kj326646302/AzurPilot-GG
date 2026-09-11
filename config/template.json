@@ -3525,6 +3525,11 @@
     "GameManager": {
       "AutoRestart": true
     },
+    "Storage": {
+      "Storage": {}
+    }
+  },
+  "GGManager": {
     "GGHandler": {
       "Enabled": false,
       "GGMethod": "u2",

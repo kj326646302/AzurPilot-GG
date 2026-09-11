@@ -482,6 +482,7 @@ Tool:
       - AzurLaneUncensored
     GameManager:
       - GameManager
+    GGManager:
       - GGHandler
       - PowerLimit
     EmulatorManager:

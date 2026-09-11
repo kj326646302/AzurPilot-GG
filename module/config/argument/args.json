@@ -18210,6 +18210,16 @@
         "value": true
       }
     },
+    "Storage": {
+      "Storage": {
+        "type": "storage",
+        "value": {},
+        "valuetype": "ignore",
+        "display": "disabled"
+      }
+    }
+  },
+  "GGManager": {
     "GGHandler": {
       "Enabled": {
         "type": "checkbox",
