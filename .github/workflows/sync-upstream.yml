@@ -32,9 +32,10 @@ jobs:
       - name: Rebase GG commits onto upstream
         run: git rebase upstream/master
 
-      - name: Validate Python sources and GG assets
+      - name: Validate GG integration and assets
         run: |
-          python -m compileall -q module bin/Frida
+          python -m compileall -q module/gg_handler bin/Frida
+          python -m py_compile module/daemon/game_manager.py module/handler/login.py
           test -f bin/Lua/Multiplier.lua
           test -f bin/Frida/inject.py
           test -f bin/Frida/remove_hard_limit.js
