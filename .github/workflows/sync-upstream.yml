@@ -39,7 +39,7 @@ jobs:
           test -f bin/Lua/Multiplier.lua
           test -f bin/Frida/inject.py
           test -f bin/Frida/remove_hard_limit.js
-          ! git grep -nE '^(<<<<<<<|=======|>>>>>>>)'
+          ! git grep -nE '^(<<<<<<< |=======$|>>>>>>> )'
 
       - name: Verify container build
         run: docker build --pull -t azurpilot-gg-sync-check -f deploy/docker/Dockerfile .
