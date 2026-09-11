@@ -40,5 +40,8 @@ jobs:
           test -f bin/Frida/remove_hard_limit.js
           ! git grep -nE '^(<<<<<<<|=======|>>>>>>>)'
 
+      - name: Verify container build
+        run: docker build --pull -t azurpilot-gg-sync-check -f deploy/docker/Dockerfile .
+
       - name: Publish only after successful validation
         run: git push --force-with-lease origin HEAD:alasgg-features
