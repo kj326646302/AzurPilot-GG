@@ -6,6 +6,27 @@ from module.gg_handler.gg_u2 import GGU2
 
 
 class GgU2LocaleTest(unittest.TestCase):
+    def test_native_file_dialog_uses_fixed_execute_button(self):
+        handler = GGU2.__new__(GGU2)
+        handler.device = Mock()
+        handler.d = Mock()
+        handler.config = SimpleNamespace(data={
+            'GGManager': {'GGHandler': {'RepushLua': False}},
+        })
+        handler.gg_package_name = 'com.example.gg'
+        handler.factor = 2000
+        file_input = Mock()
+        file_input.exists = True
+        file_input.get_text.return_value = '/sdcard/Notes/Multiplier.lua'
+        handler.d.return_value = file_input
+
+        handler.device.sleep.side_effect = [None, RuntimeError('stop')]
+        with self.assertRaisesRegex(RuntimeError, 'stop'):
+            handler._run()
+
+        handler.device.click_maatouch.assert_called_once_with(960, 176)
+        file_input.send_keys.assert_not_called()
+
     def test_execute_selector_accepts_english_label(self):
         handler = GGU2.__new__(GGU2)
         handler.device = Mock()

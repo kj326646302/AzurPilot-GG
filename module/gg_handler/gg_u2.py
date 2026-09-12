@@ -175,6 +175,13 @@ class GGU2(Base):
                 if file_input.get_text() != "/sdcard/Notes/Multiplier.lua":
                     file_input.send_keys("/sdcard/Notes/Multiplier.lua")
                     logger.info('Lua path set')
+                # GG's native file dialog is drawn outside Accessibility on
+                # Android 11: U2 sees the EditText and soft keyboard but not
+                # the EXECUTE button. Its landscape position is stable.
+                self.device.click_maatouch(960, 176)
+                logger.info('Click Run (native dialog fallback)')
+                self.device.sleep(1)
+                continue
             execute_xpath = '//*[@text="执行" or @text="EXECUTE" or @text="Execute"]'
             if self.d.xpath(execute_xpath).exists:
                 self._click_xpath(execute_xpath)
