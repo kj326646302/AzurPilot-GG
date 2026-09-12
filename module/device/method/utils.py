@@ -12,6 +12,7 @@ import uiautomator2 as u2
 import uiautomator2cache
 from adbutils import AdbTimeout
 from lxml import etree
+from packaging.version import InvalidVersion, Version
 
 from module.device.method.remove_warning import remove_shell_warning
 
@@ -111,6 +112,25 @@ def handle_image_truncated(obj, exc: Exception) -> None:
 
 # Patch uiautomator2 appdir
 u2.init.appdir = os.path.dirname(uiautomator2cache.__file__)
+
+# uiautomator2 2.x expects both helper APKs to expose a numeric versionName.
+# Its instrumentation test APK can legitimately declare versionName=null;
+# newer packaging releases reject the resulting empty string. Treat that
+# installed helper as version 0 so the health check continues instead of
+# crashing every GG policy invocation.
+if not getattr(u2._Device._package_version, '_alas_missing_version_patch', False):
+    _u2_package_version = u2._Device._package_version
+
+    def _package_version_allow_missing(self, package_name):
+        try:
+            return _u2_package_version(self, package_name)
+        except InvalidVersion:
+            if self.shell(['pm', 'path', package_name]).exit_code == 0:
+                return Version('0')
+            raise
+
+    _package_version_allow_missing._alas_missing_version_patch = True
+    u2._Device._package_version = _package_version_allow_missing
 
 # Patch uiautomator2 logger
 u2_logger = u2.logger
