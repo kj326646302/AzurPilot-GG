@@ -943,27 +943,29 @@ class LiveScrcpySession:
 class LiveControlDevice:
     def __init__(self, instance):
         from module.config.config import AzurLaneConfig
-        from module.device.connection import Connection
+        from module.device.device import Device
 
         self.config = AzurLaneConfig(instance)
-        self.connection = Connection(self.config)
+        self.device = Device(self.config)
 
     def tap(self, x, y):
-        self.connection.adb_shell(["input", "tap", int(x), int(y)])
+        # MaaTouch applies the same orientation transform as scheduled tasks.
+        # Raw `adb shell input tap` misses Unity surfaces when reDroid reports
+        # orientation=2 while screenshots remain landscape.
+        self.device.click_maatouch(int(x), int(y))
 
     def drag(self, start, end, duration_ms=220):
         p1 = (int(start.get("x", 0)), int(start.get("y", 0)))
         p2 = (int(end.get("x", 0)), int(end.get("y", 0)))
-        duration_ms = max(40, min(int(duration_ms or 220), 1500))
-        self.connection.adb_shell(["input", "swipe", p1[0], p1[1], p2[0], p2[1], duration_ms])
+        self.device.swipe_maatouch(p1, p2)
 
     def keycode(self, keycode):
-        self.connection.adb_shell(["input", "keyevent", int(keycode)])
+        self.device.adb_shell(["input", "keyevent", int(keycode)])
 
     def text(self, text):
         text = str(text or "").replace(" ", "%s")
         if text:
-            self.connection.adb_shell(["input", "text", text])
+            self.device.adb_shell(["input", "text", text])
 
 
 def _key_to_android_keycode(key):
