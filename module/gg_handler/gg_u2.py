@@ -28,6 +28,19 @@ class GGU2(Base):
         x, y = element.center()
         self.device.click_maatouch(int(x), int(y))
 
+    def _submit_native_file_dialog(self):
+        """Confirm GG's non-accessible Android 11 file picker.
+
+        The path field is visible to U2, but the native file list and EXECUTE
+        button use normal Android coordinates rather than GG's rotated canvas.
+        """
+        self.device.adb_shell(['input', 'keyevent', 66])
+        self.device.sleep(0.5)
+        self.device.adb_shell(['input', 'tap', 685, 190])
+        self.device.sleep(0.5)
+        self.device.adb_shell(['input', 'tap', 960, 176])
+        self.device.sleep(1)
+
     def exit(self):
         self.d.app_stop(f'{self.gg_package_name}')
         logger.attr('GG', 'Killed')
@@ -175,12 +188,10 @@ class GGU2(Base):
                 if file_input.get_text() != "/sdcard/Notes/Multiplier.lua":
                     file_input.send_keys("/sdcard/Notes/Multiplier.lua")
                     logger.info('Lua path set')
-                # GG's native file dialog is drawn outside Accessibility on
-                # Android 11: U2 sees the EditText and soft keyboard but not
-                # the EXECUTE button. Its landscape position is stable.
-                self.device.click_maatouch(960, 176)
+                # GG's native file picker is outside Accessibility on Android
+                # 11. Submit it through normal Android coordinates.
+                self._submit_native_file_dialog()
                 logger.info('Click Run (native dialog fallback)')
-                self.device.sleep(1)
                 continue
             execute_xpath = '//*[@text="执行" or @text="EXECUTE" or @text="Execute"]'
             if self.d.xpath(execute_xpath).exists:

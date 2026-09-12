@@ -20,11 +20,18 @@ class GgU2LocaleTest(unittest.TestCase):
         file_input.get_text.return_value = '/sdcard/Notes/Multiplier.lua'
         handler.d.return_value = file_input
 
-        handler.device.sleep.side_effect = [None, RuntimeError('stop')]
+        handler.device.sleep.side_effect = [None, None, None, RuntimeError('stop')]
         with self.assertRaisesRegex(RuntimeError, 'stop'):
             handler._run()
 
-        handler.device.click_maatouch.assert_called_once_with(960, 176)
+        self.assertEqual(
+            [
+                ((['input', 'keyevent', 66],), {}),
+                ((['input', 'tap', 685, 190],), {}),
+                ((['input', 'tap', 960, 176],), {}),
+            ],
+            handler.device.adb_shell.call_args_list,
+        )
         file_input.send_keys.assert_not_called()
 
     def test_execute_selector_accepts_english_label(self):
