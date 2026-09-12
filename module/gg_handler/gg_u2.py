@@ -167,11 +167,14 @@ class GGU2(Base):
             self.device.adb_push("bin/Lua/Multiplier.lua", "/sdcard/Notes/Multiplier.lua")
             self.device.sleep(0.5)
             logger.info('Lua Pushed')
-        while 1:
+        deadline = time.monotonic() + 90
+        while time.monotonic() < deadline:
             self.device.sleep(1)
             if self.d(resourceId=f"{self.gg_package_name}:id/file").exists:
-                self.d(resourceId=f"{self.gg_package_name}:id/file").send_keys("/sdcard/Notes/Multiplier.lua")
-                logger.info('Lua path set')
+                file_input = self.d(resourceId=f"{self.gg_package_name}:id/file")
+                if file_input.get_text() != "/sdcard/Notes/Multiplier.lua":
+                    file_input.send_keys("/sdcard/Notes/Multiplier.lua")
+                    logger.info('Lua path set')
             execute_xpath = '//*[@text="执行" or @text="EXECUTE" or @text="Execute"]'
             if self.d.xpath(execute_xpath).exists:
                 self._click_xpath(execute_xpath)
@@ -209,8 +212,9 @@ class GGU2(Base):
             self.d.wait_timeout = 3
             if _set and _confirmed:
                 break
-            else:
-                return 0
+        else:
+            logger.warning('GG multiplier setup timed out after 90 seconds')
+            return 0
         logger.hr('GG Enabled', level=2)
         self.d.app_stop(self.gg_package_name)
         return 1
