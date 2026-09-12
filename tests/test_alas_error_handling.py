@@ -26,11 +26,44 @@ class TestErrorContext(unittest.TestCase):
         self.assertIn('异常：GameNotRunningError: Game not running', log.call_args.args[1])
 
 
+class TestGgTaskRouting(unittest.TestCase):
+    def _script(self):
+        script = AzurLaneAutoScript.__new__(AzurLaneAutoScript)
+        script.config_name = 'test'
+        script.__dict__['config'] = Mock()
+        script.__dict__['device'] = Mock()
+        script._channel_float_done = True
+        return script
+
+    @patch('module.gg_handler.gg_handler.GGHandler')
+    def test_normal_task_applies_gg_policy_before_execution(self, gg_handler):
+        script = self._script()
+        script.__dict__['hard'] = Mock()
+
+        self.assertTrue(script.run('hard', skip_first_screenshot=True))
+
+        gg_handler.assert_called_once_with(config=script.config, device=script.device)
+        gg_handler.return_value.check_then_set_gg_status.assert_called_once_with('hard')
+        script.hard.assert_called_once_with()
+
+    @patch('module.gg_handler.gg_handler.GGHandler')
+    def test_restart_does_not_enable_gg_before_login(self, gg_handler):
+        script = self._script()
+        script.__dict__['restart'] = Mock()
+
+        self.assertTrue(script.run('restart', skip_first_screenshot=True))
+
+        gg_handler.assert_not_called()
+        script.restart.assert_called_once_with()
+
+
 class TestGameNotRunningErrorHandling(unittest.TestCase):
     def test_schedules_restart_without_requesting_traceback(self):
         script = AzurLaneAutoScript.__new__(AzurLaneAutoScript)
         script.config_name = 'test'
+        script._channel_float_done = True
         script.__dict__['config'] = Mock()
+        script.__dict__['device'] = Mock()
         script.config.cross_get.return_value = False
         error = GameNotRunningError('Game not running')
         script.__dict__['commission'] = Mock(side_effect=error)

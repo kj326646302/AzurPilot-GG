@@ -880,6 +880,11 @@ class AzurLaneAutoScript:
             # 渠道服悬浮球：调度器启动/游戏重启后仅处理一次（主界面时）
             if not self._channel_float_done:
                 self.handle_channel_float()
+            # 按任务风险策略自动启停 GG。Restart 只负责恢复游戏；倍率应在
+            # 随后的具体任务开始前设置，避免登录阶段提前注入。
+            if command != 'restart':
+                from module.gg_handler.gg_handler import GGHandler
+                GGHandler(config=self.config, device=self.device).check_then_set_gg_status(command)
             self.__getattribute__(command)()
             return True
         except TaskEnd:
