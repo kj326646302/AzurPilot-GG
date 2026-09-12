@@ -71,8 +71,9 @@ class GGU2(Base):
                     deadline = time.monotonic() + 120
                     while time.monotonic() < deadline:
                         self.device.sleep(0.5)
-                        if self.d.xpath('//*[@text="忽略"]').exists:
-                            self._click_xpath('//*[@text="忽略"]')
+                        ignore_xpath = '//*[@text="忽略" or @text="IGNORE" or @text="Ignore"]'
+                        if self.d.xpath(ignore_xpath).exists:
+                            self._click_xpath(ignore_xpath)
                             logger.info("Click ignore")
                             self.device.sleep(0.3)
                             continue
@@ -120,13 +121,15 @@ class GGU2(Base):
                             logger.info('Click APP choosing tag')
                             self.device.sleep(0.3)
                             continue
-                        if self.d.xpath('//*[@text="取消"]').exists:
-                            self._click_xpath('//*[@text="取消"]')
+                        cancel_xpath = '//*[@text="取消" or @text="CANCEL" or @text="Cancel"]'
+                        if self.d.xpath(cancel_xpath).exists:
+                            self._click_xpath(cancel_xpath)
                             logger.info("Cancel exists but not running script, click cancel")
                             self.device.sleep(0.3)
                             continue
-                        if self.d.xpath('//*[@text="确定"]').exists:
-                            self._click_xpath('//*[@text="确定"]')
+                        confirm_xpath = '//*[@text="确定" or @text="OK" or @text="Ok"]'
+                        if self.d.xpath(confirm_xpath).exists:
+                            self._click_xpath(confirm_xpath)
                             logger.info("Confirm exists but script crashed, click confirm")
                             self.device.sleep(0.3)
                             continue
@@ -169,12 +172,15 @@ class GGU2(Base):
             if self.d(resourceId=f"{self.gg_package_name}:id/file").exists:
                 self.d(resourceId=f"{self.gg_package_name}:id/file").send_keys("/sdcard/Notes/Multiplier.lua")
                 logger.info('Lua path set')
-            if self.d.xpath('//*[@text="执行"]').exists:
-                self._click_xpath('//*[@text="执行"]')
+            execute_xpath = '//*[@text="执行" or @text="EXECUTE" or @text="Execute"]'
+            if self.d.xpath(execute_xpath).exists:
+                self._click_xpath(execute_xpath)
                 logger.info('Click Run')
                 self.device.sleep(0.5)
-            if self.d.xpath('//*[contains(@text,"修改面板")]').exists:
-                self._click_xpath('//*[contains(@text,"修改面板")]')
+            change_xpath = ('//*[contains(@text,"修改面板") '
+                            'or contains(@text,"Change") or contains(@text,"MODIFY")]')
+            if self.d.xpath(change_xpath).exists:
+                self._click_xpath(change_xpath)
                 logger.info('Click Change Statistic')
                 self.device.sleep(0.5)
             if self.d(resourceId=f"{self.gg_package_name}:id/edit").exists:
@@ -182,8 +188,9 @@ class GGU2(Base):
                 logger.info(f'Factor Set: {self.factor}')
                 self.device.sleep(0.5)
                 _set = True
-            if _set and self.d.xpath('//*[@text="确定"]').exists:
-                self._click_xpath('//*[@text="确定"]')
+            confirm_xpath = '//*[@text="确定" or @text="OK" or @text="Ok"]'
+            if _set and self.d.xpath(confirm_xpath).exists:
+                self._click_xpath(confirm_xpath)
                 logger.info("Click confirm")
                 self.device.sleep(0.5)
                 _confirmed = True
@@ -191,7 +198,8 @@ class GGU2(Base):
 
             if _set and _confirmed:
                 try:
-                    self._click_xpath('//*[@text="确定"]')
+                    if self.d.xpath(confirm_xpath).exists:
+                        self._click_xpath(confirm_xpath)
                     GGData(self.config).set_data(target='gg_on', value=True)
                 finally:
                     pass
