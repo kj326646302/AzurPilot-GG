@@ -1332,6 +1332,17 @@ async def _ws_live_screenshot_fallback(websocket, instance, codec, ffmpeg, fps, 
                 pass
 
 
+def _select_live_control_target(instance):
+    """Use local ADB for reliable browser preview input.
+
+    ws-scrcpy v1.19 remains the low-latency H.264 video transport, but its
+    historical control packet layout is not compatible with every Android
+    release. ADB input runs beside reDroid, so it is effectively local while
+    keeping video streaming untouched.
+    """
+    return LiveControlDevice(instance)
+
+
 async def ws_live_control(websocket):
     await websocket.accept()
     if is_demo_mode():
@@ -1342,19 +1353,7 @@ async def ws_live_control(websocket):
         await websocket.close()
         return
     instance = websocket.query_params.get("instance", DEFAULT_CONFIG_NAME)
-    fallback = None
-
-    def get_target():
-        nonlocal fallback
-        ws_session = LiveWsScrcpySession.get(instance)
-        if ws_session is not None:
-            return ws_session
-        session = LiveScrcpySession.get(instance)
-        if session is not None:
-            return session
-        if fallback is None:
-            fallback = LiveControlDevice(instance)
-        return fallback
+    target = _select_live_control_target(instance)
 
     try:
         while True:
@@ -1366,7 +1365,6 @@ async def ws_live_control(websocket):
                 continue
 
             action = data.get("type")
-            target = get_target()
             if action == "tap":
                 x = int(data.get("x", 0))
                 y = int(data.get("y", 0))
