@@ -41,6 +41,10 @@ class GGU2(Base):
         self.device.adb_shell(['input', 'tap', 960, 176])
         self.device.sleep(1)
 
+    def _return_to_game(self):
+        self.device.app_start()
+        logger.info('Return to Azur Lane and keep GG daemon in background')
+
     def exit(self):
         self.d.app_stop(f'{self.gg_package_name}')
         logger.attr('GG', 'Killed')
@@ -234,5 +238,8 @@ class GGU2(Base):
             logger.warning('GG multiplier setup timed out after 90 seconds')
             return 0
         logger.hr('GG Enabled', level=2)
-        self.d.app_stop(self.gg_package_name)
+        # Keep GG and its root daemon alive after configuring the multiplier.
+        # Force-stopping GG kills the daemon; the host watchdog then reopens the
+        # full GG activity over the game and intercepts every Alas tap.
+        self._return_to_game()
         return 1

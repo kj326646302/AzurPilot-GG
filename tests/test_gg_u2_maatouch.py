@@ -36,6 +36,15 @@ class GgU2MaaTouchTest(unittest.TestCase):
         xpath_selector.get.assert_called_once_with(timeout=3)
         handler.device.click_maatouch.assert_called_once_with(1190, 198)
 
+    def test_enabled_multiplier_returns_to_game_without_killing_gg(self):
+        handler = self._handler()
+        handler.gg_package_name = 'com.example.gg'
+
+        handler._return_to_game()
+
+        handler.device.app_start.assert_called_once_with()
+        handler.d.app_stop.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()
