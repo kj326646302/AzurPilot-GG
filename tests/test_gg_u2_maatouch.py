@@ -45,6 +45,17 @@ class GgU2MaaTouchTest(unittest.TestCase):
         handler.device.app_start.assert_called_once_with()
         handler.d.app_stop.assert_not_called()
 
+    def test_restart_cleanup_keeps_daemon_and_returns_to_game(self):
+        handler = self._handler()
+        handler.gg_package_name = 'com.example.gg'
+        handler.d.xpath.return_value.exists = False
+
+        skipped = handler.skip_error()
+
+        self.assertEqual(0, skipped)
+        handler.device.app_start.assert_called_once_with()
+        handler.d.app_stop.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

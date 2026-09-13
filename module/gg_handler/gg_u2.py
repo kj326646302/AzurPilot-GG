@@ -46,15 +46,20 @@ class GGU2(Base):
         logger.info('Return to Azur Lane and keep GG daemon in background')
 
     def exit(self):
-        self.d.app_stop(f'{self.gg_package_name}')
-        logger.attr('GG', 'Killed')
+        # Keep the GG root daemon alive. Killing the package makes the host
+        # watchdog reopen the full GG activity, which covers the game login
+        # screen and traps Alas in repeated LOGIN_CHECK taps.
+        self._return_to_game()
+        logger.attr('GG', 'Background')
 
     def skip_error(self):
         _skipped = 0
-        if self.d.xpath('//*[@text="重启游戏"]').exists:
+        restart_xpath = ('//*[@text="重启游戏" or @text="RESTART GAME" '
+                         'or @text="Restart game"]')
+        if self.d.xpath(restart_xpath).exists:
             _skipped = 1
             logger.hr('Game died with GG panel')
-        logger.info('No matter GG panel exists or not, Kill GG')
+        logger.info('Return to game and keep GG daemon alive')
         self.exit()
         return _skipped
 
