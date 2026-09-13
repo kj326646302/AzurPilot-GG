@@ -110,18 +110,8 @@ class GGU2(Base):
                             logger.info('Open GG panel')
                             self.device.sleep(0.3)
                             continue
-                        if self.d(resourceId=f"{self.gg_package_name}:id/search_toolbar").exists:
-                            run_xpath = (
-                                f'//*[@resource-id="{self.gg_package_name}'
-                                f':id/search_toolbar"]/android.widget.ImageView[last()]'
-                            )
-                            self._click_xpath(run_xpath)
-                            logger.info('Click run Scripts')
-                            self.device.sleep(0.3)
-                            if self._run():
-                                return 1
-                            continue
-                        if self.d(resourceId=f"{self.gg_package_name}:id/search_tab").exists:
+                        if self.d(resourceId=f"{self.gg_package_name}:id/search_tab").exists \
+                                and not self.d(resourceId=f"{self.gg_package_name}:id/search_toolbar").exists:
                             self._click_u2_object(self.d(resourceId=f"{self.gg_package_name}:id/search_tab"))
                             logger.info('Switch to search tab')
                             self.device.sleep(0.3)
@@ -142,6 +132,17 @@ class GGU2(Base):
                             self._click_u2_object(self.d(resourceId=f"{self.gg_package_name}:id/app_icon"))
                             logger.info('Click APP choosing tag')
                             self.device.sleep(0.3)
+                            continue
+                        if self.d(resourceId=f"{self.gg_package_name}:id/search_toolbar").exists:
+                            run_xpath = (
+                                f'//*[@resource-id="{self.gg_package_name}'
+                                f':id/search_toolbar"]/android.widget.ImageView[last()]'
+                            )
+                            self._click_xpath(run_xpath)
+                            logger.info('Click run Scripts')
+                            self.device.sleep(0.3)
+                            if self._run():
+                                return 1
                             continue
                         cancel_xpath = '//*[@text="取消" or @text="CANCEL" or @text="Cancel"]'
                         if self.d.xpath(cancel_xpath).exists:
