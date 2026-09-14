@@ -145,7 +145,18 @@ class GlobeCamera(GlobeOperation, ZoneManager):
         vector = np.array(distance) * vector
 
         vector = -vector
-        self.device.swipe_vector(vector, name=name, box=box)
+        if self.config.DEVICE_CONTROL_METHOD == 'MaaTouch':
+            # MaaTouch clicks work on reDroid with orientation=2, but globe
+            # drags do not move the map. The task consequently repeated the same
+            # GLOBE_SWIPE_* action twelve times and tripped the click guard.
+            # Generate the normal randomized path, but execute that one gesture
+            # through Android's native input backend in display coordinates.
+            p1, p2 = random_rectangle_vector_opted(
+                vector, box=box, random_range=(0, 0, 0, 0), padding=15)
+            self.device.handle_control_check(name)
+            self.device.swipe_adb(p1, p2, duration=0.5)
+        else:
+            self.device.swipe_vector(vector, name=name, box=box)
         self.device.sleep(0.3)
 
         self.globe_update()

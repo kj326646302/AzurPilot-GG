@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import Mock
 
 from module.os.globe_operation import GlobeOperation
+from module.os.globe_camera import GlobeCamera
 
 
 class GlobeOperationRedroidTest(unittest.TestCase):
@@ -42,6 +43,22 @@ class GlobeOperationRedroidTest(unittest.TestCase):
         self.assertFalse(handler.handle_zone_pinned())
 
         handler.device.swipe_adb.assert_not_called()
+
+    def test_globe_swipe_uses_adb_with_maatouch(self):
+        handler = GlobeCamera.__new__(GlobeCamera)
+        handler.device = Mock()
+        handler.device.image = None
+        handler.config = Mock()
+        handler.config.DEVICE_CONTROL_METHOD = 'MaaTouch'
+        handler.config.MAP_SWIPE_MULTIPLY_MAATOUCH = (1.0, 1.0)
+        handler.globe_update = Mock()
+
+        handler.globe_swipe((100, 80), box=(20, 220, 980, 620))
+
+        handler.device.handle_control_check.assert_called_once()
+        handler.device.swipe_adb.assert_called_once()
+        handler.device.swipe_vector.assert_not_called()
+        handler.globe_update.assert_called_once_with()
 
 
 if __name__ == '__main__':
