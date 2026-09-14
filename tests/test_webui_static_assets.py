@@ -125,6 +125,22 @@ class TestWebUIStaticAssets(unittest.TestCase):
         self.assertNotIn("stylesSettled", INITIAL_LOADING_JS)
         self.assertNotIn("alas-initial-style-settled", INITIAL_LOADING_JS)
 
+    def test_live_preview_starts_and_acknowledges_control_channel(self):
+        script = (PROJECT_ROOT / "assets/gui/js/alas-utils.js").read_text(
+            encoding="utf-8"
+        )
+        api_source = (PROJECT_ROOT / "module/webui/api.py").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("startControl();", script)
+        self.assertIn("window.alasSendLiveControl", script)
+        self.assertIn("window.__alasLiveControlDispatch", script)
+        self.assertIn('msg.type === \'ready\'', script)
+        self.assertIn('msg.type === \'ack\'', script)
+        self.assertIn('"channel": "live_control"', api_source)
+        self.assertIn('"type": "ack"', api_source)
+
     def test_initial_shell_paints_before_external_stylesheets(self):
         @config(
             css_file="static/assets/gui/css/test.css?v=content-hash",

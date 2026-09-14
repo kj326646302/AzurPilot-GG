@@ -90,6 +90,38 @@ class LoginHandler(UI):
     - handle_app_login(): 带重试的登录入口
     """
 
+    def _foreground_activity(self) -> str:
+        """Return the resumed Android component name, if available."""
+        try:
+            out = self.device.adb_shell(
+                ['dumpsys', 'activity', 'activities'], timeout=15)
+        except Exception:
+            return ''
+        for line in str(out).splitlines():
+            if 'mResumedActivity' not in line:
+                continue
+            for token in line.split():
+                if '/' in token and '.' in token:
+                    return token.rstrip('}')
+        return ''
+
+    def _handle_bilibili_sdk_activity(self) -> bool:
+        """Handle Bilibili's native login-record activity on reDroid.
+
+        The Bilibili SDK draws this dialog in a separate native Activity. With
+        reDroid reporting orientation=2, MaaTouch transforms the normal landscape
+        coordinates and misses the large pink Login button. Use Android's native
+        display coordinates only for this exact Activity.
+        """
+        activity = self._foreground_activity()
+        if 'com.gsc.login_record.LoginRecordActivity' not in activity:
+            return False
+        logger.info('[登录] B服登录记录，使用原生 ADB 点击登录')
+        self.device.handle_control_check('BILIBILI_LOGIN_RECORD')
+        self.device.adb_shell(['input', 'tap', 640, 420])
+        self.device.sleep(2)
+        return True
+
     def _handle_app_login(self):
         """
         Pages:
@@ -114,6 +146,9 @@ class LoginHandler(UI):
         self._channel_float_hide_tries = 0
 
         while 1:
+            if self._handle_bilibili_sdk_activity():
+                continue
+
             # 监测设备屏幕旋转
             if not login_success and orientation_timer.reached():
                 # 启动应用后屏幕可能会旋转

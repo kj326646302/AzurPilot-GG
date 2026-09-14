@@ -1347,6 +1347,9 @@ def _select_live_control_target(instance):
 
 async def ws_live_control(websocket):
     await websocket.accept()
+    # Explicit handshake lets the browser distinguish a real WebUI control
+    # connection from a proxy/socket that merely completed the upgrade.
+    await websocket.send_text(json.dumps({"type": "ready", "channel": "live_control"}))
     if is_demo_mode():
         await websocket.send_text(json.dumps({
             "type": "error",
@@ -1398,6 +1401,9 @@ async def ws_live_control(websocket):
                 await asyncio.to_thread(target.keycode, keycode)
             else:
                 await websocket.send_text(json.dumps({"type": "error", "message": f"未知控制动作: {action}"}))
+                continue
+
+            await websocket.send_text(json.dumps({"type": "ack", "action": action}))
     except WebSocketDisconnect:
         pass
     except Exception as e:

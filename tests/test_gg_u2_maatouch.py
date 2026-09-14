@@ -79,6 +79,20 @@ class GgU2MaaTouchTest(unittest.TestCase):
 
         self.assertEqual('', handler._read_multiplier_status())
 
+    def test_script_dialog_detected_from_edit_field_before_cancel(self):
+        handler = self._handler()
+        handler.gg_package_name = 'com.example.gg'
+
+        def selector(**kwargs):
+            result = Mock()
+            result.exists = kwargs.get('resourceId') == 'com.example.gg:id/edit'
+            return result
+
+        handler.d.side_effect = selector
+        handler.d.xpath.return_value.exists = False
+
+        self.assertTrue(handler._has_script_dialog())
+
     def test_restart_cleanup_keeps_daemon_and_returns_to_game(self):
         handler = self._handler()
         handler.gg_package_name = 'com.example.gg'

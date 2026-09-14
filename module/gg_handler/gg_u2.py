@@ -227,6 +227,23 @@ class GGU2(Base):
                             if run_result == -1:
                                 return 0
                             continue
+
+                        # GG's Lua file picker and value prompt both contain a
+                        # generic Cancel button. Checking Cancel first repeatedly
+                        # dismissed the active script dialog, so the outer loop
+                        # clicked it until the 120-second timeout. Hand ownership
+                        # to _run() whenever any script-dialog control is visible;
+                        # _run() submits the dialog once and waits for the disk
+                        # completion marker.
+                        if self._has_script_dialog():
+                            logger.info('GG script dialog detected; wait for Lua completion')
+                            run_result = self._run()
+                            if run_result == 1:
+                                return 1
+                            if run_result == -1:
+                                return 0
+                            continue
+
                         cancel_xpath = '//*[@text="取消" or @text="CANCEL" or @text="Cancel"]'
                         if self.d.xpath(cancel_xpath).exists:
                             self._click_xpath(cancel_xpath)
@@ -249,6 +266,15 @@ class GGU2(Base):
                     return 0
             finally:
                 pass
+
+    def _has_script_dialog(self) -> bool:
+        """Return whether GG is already inside the Lua file/value dialog."""
+        execute_xpath = '//*[@text="执行" or @text="EXECUTE" or @text="Execute"]'
+        return bool(
+            self.d(resourceId=f"{self.gg_package_name}:id/file").exists
+            or self.d(resourceId=f"{self.gg_package_name}:id/edit").exists
+            or self.d.xpath(execute_xpath).exists
+        )
 
     def _read_multiplier_status(self) -> str:
         """Read the completion marker written by Multiplier.lua.

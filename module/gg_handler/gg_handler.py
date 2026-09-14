@@ -300,6 +300,14 @@ class GGHandler:
                 f'Enabled={gg_data["gg_enable"]} AutoRestart={gg_data["gg_auto"]} Current stage={gg_data["gg_on"]}')
             if gg_auto:
                 if not gg_data['gg_on']:
+                    # GG searches values in the live game process. On Bilibili,
+                    # app startup may still be inside LoginRecord/AutoLogin or on
+                    # the Unity title screen when task routing reaches this point.
+                    # Searching there returns not_found:0 and starts a restart
+                    # loop. Complete login first, then attach GG to the fully
+                    # initialized game process.
+                    from module.handler.login import LoginHandler
+                    LoginHandler(config=self.config, device=self.device).handle_app_login()
                     self.set(True)
             elif gg_data['gg_on']:
                 self.gg_reset()

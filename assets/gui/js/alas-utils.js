@@ -209,6 +209,7 @@
         fullscreenControl: false,
         pointerDown: null,
         pointerMoves: 0,
+        controlEventsBound: false,
         controlReady: false,
         controlQueue: [],
         keyboardComposing: false,
@@ -233,7 +234,15 @@
 
     function ensurePanel() {
         var panel = document.getElementById('alas-live-preview');
-        if (panel) return panel;
+        if (panel) {
+            // PyWebIO page navigation may preserve the preview DOM while this
+            // script is re-evaluated and creates a new closure/state object.
+            // Rebind the preserved controls to the current closure; otherwise
+            // video reconnects but the visible Back/Home buttons still call the
+            // stale sendControl() and appear completely unresponsive.
+            bindSystemButtons(panel);
+            return panel;
+        }
 
         panel = document.createElement('div');
         panel.id = 'alas-live-preview';
@@ -972,9 +981,10 @@
         state.controlReady = false;
         state.controlSocket = socket;
         socket.onopen = function () {
-            state.controlReady = true;
-            setStatus('全屏控制已开启');
-            flushControlQueue();
+            // Wait for the application-level ready message. A WebSocket upgrade
+            // alone only proves that a proxy accepted the connection.
+            window.__alasLiveControlSocket = socket;
+            setStatus('控制连接中');
         };
         socket.onerror = function () {
             state.controlReady = false;
@@ -988,7 +998,18 @@
             if (typeof event.data !== 'string') return;
             try {
                 var msg = JSON.parse(event.data);
-                if (msg.type === 'error') setStatus(msg.message);
+                if (msg.type === 'ready') {
+                    state.controlReady = true;
+                    setStatus('控制已开启');
+                    flushControlQueue();
+                } else if (msg.type === 'ack') {
+                    setStatus('控制已发送: ' + msg.action);
+                    setTimeout(function () {
+                        if (state.controlReady) setStatus('');
+                    }, 800);
+                } else if (msg.type === 'error') {
+                    setStatus(msg.message);
+                }
             } catch (e) { }
         };
     }
@@ -1045,13 +1066,31 @@
     }
 
     function bindSystemButtons(panel) {
-        var buttons = panel.querySelectorAll('[data-live-control]');
-        buttons.forEach(function (button) {
-            button.addEventListener('click', function (event) {
-                event.preventDefault();
-                handleSystemAction(button.getAttribute('data-live-control'));
-            });
-        });
+        // PyWebIO may replace nodes while switching pages/scopes, removing the
+        // handler assigned above. Delegate from document as a durable fallback.
+        // Re-evaluating this script replaces the global callback rather than
+        // stacking listeners from stale closures.
+        window.__alasLiveControlDispatch = function (event) {
+            var button = event.target && event.target.closest
+                ? event.target.closest('[data-live-control]') : null;
+            if (!button || !document.getElementById('alas-live-preview')) return;
+            event.preventDefault();
+            event.stopPropagation();
+            var action = button.getAttribute('data-live-control');
+            if (action === 'keyboard') {
+                focusMobileKeyboard();
+                return;
+            }
+            window.alasSendLiveControl({ type: action });
+        };
+        if (!window.__alasLiveControlDelegateBound) {
+            document.addEventListener('click', function (event) {
+                if (window.__alasLiveControlDispatch) {
+                    window.__alasLiveControlDispatch(event);
+                }
+            }, true);
+            window.__alasLiveControlDelegateBound = true;
+        }
     }
 
     function bindMobileKeyboard(panel) {
@@ -1118,7 +1157,7 @@
     }
 
     function onPointerDown(event) {
-        if (!state.fullscreenControl) return;
+        if (!state.open) return;
         var point = videoPointFromEvent(event);
         if (!point) return;
         event.preventDefault();
@@ -1133,13 +1172,13 @@
     }
 
     function onPointerMove(event) {
-        if (!state.fullscreenControl || !state.pointerDown) return;
+        if (!state.open || !state.pointerDown) return;
         state.pointerMoves += 1;
         event.preventDefault();
     }
 
     function onPointerUp(event) {
-        if (!state.fullscreenControl || !state.pointerDown) return;
+        if (!state.open || !state.pointerDown) return;
         var point = videoPointFromEvent(event);
         var down = state.pointerDown;
         state.pointerDown = null;
@@ -1179,6 +1218,7 @@
         var canvas = panel.querySelector('.alas-live-preview-canvas');
         var targets = [video, canvas];
         if (enable) {
+            if (state.controlEventsBound) return;
             targets.forEach(function (target) {
                 target.addEventListener('pointerdown', onPointerDown);
                 target.addEventListener('pointermove', onPointerMove);
@@ -1186,7 +1226,9 @@
                 target.addEventListener('pointercancel', onPointerUp);
             });
             document.addEventListener('keydown', onKeyDown, true);
+            state.controlEventsBound = true;
         } else {
+            if (!state.controlEventsBound) return;
             targets.forEach(function (target) {
                 target.removeEventListener('pointerdown', onPointerDown);
                 target.removeEventListener('pointermove', onPointerMove);
@@ -1194,6 +1236,7 @@
                 target.removeEventListener('pointercancel', onPointerUp);
             });
             document.removeEventListener('keydown', onKeyDown, true);
+            state.controlEventsBound = false;
         }
     }
 
@@ -1254,8 +1297,56 @@
         }
     });
 
+    window.alasSendLiveControl = function (payload) {
+        // Use a one-shot socket for visible toolbar actions. PyWebIO can preserve
+        // old DOM nodes and old closure state across page changes; a persistent
+        // socket may still look OPEN in the browser while its application-level
+        // ready event belongs to the previous closure. A short connection waits
+        // for the server's explicit ready message, sends exactly one action,
+        // receives ack, then closes. This is the same path used by the verified
+        // direct WebSocket control test.
+        var url = getWebSocketBase('/ws/live_control') + '?instance=' +
+            encodeURIComponent(state.instance || 'alas');
+        var socket = new WebSocket(url);
+        var sent = false;
+        var timer = setTimeout(function () {
+            try { socket.close(); } catch (e) { }
+            setStatus('控制连接超时');
+        }, 6000);
+        socket.onmessage = function (event) {
+            if (typeof event.data !== 'string') return;
+            var msg;
+            try { msg = JSON.parse(event.data); } catch (e) { return; }
+            if (msg.type === 'ready' && !sent) {
+                sent = true;
+                socket.send(JSON.stringify(payload));
+                setStatus('控制已发送: ' + payload.type);
+            } else if (msg.type === 'ack') {
+                clearTimeout(timer);
+                setStatus('');
+                socket.close();
+            } else if (msg.type === 'error') {
+                clearTimeout(timer);
+                setStatus(msg.message);
+                socket.close();
+            }
+        };
+        socket.onerror = function () {
+            clearTimeout(timer);
+            setStatus('控制连接错误');
+        };
+    };
+
     window.alasStartLivePreview = function (instance, codec) {
         start(instance, codec);
+        bindControlEvents(true);
+        // Header controls (Back/Home/App switch/keyboard) are visible in normal
+        // preview mode. Previously the control WebSocket was only opened after
+        // entering fullscreen, so those buttons merely queued messages forever
+        // and appeared completely unresponsive. Keep pointer/touch control gated
+        // behind fullscreen, but connect the control channel as soon as preview
+        // opens so the always-visible system buttons work immediately.
+        startControl();
     };
 
     window.alasStopLivePreview = function () {
