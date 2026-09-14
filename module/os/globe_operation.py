@@ -138,20 +138,32 @@ class GlobeOperation(ActionPointHandler):
             return ''
 
     def handle_zone_pinned(self):
-        """
-        关闭固定海域信息弹窗。
+        """Close the pinned-zone detail panel.
+
+        The old gesture was a 50 px diagonal swipe inside an area expanded from
+        the 11x11 ``ZONE_PINNED`` marker. On reDroid that lands on the boundary of
+        the left detail panel and the world map; it never closes the panel, so
+        the loop repeats ``PINNED_DISABLE`` until the click guard aborts the task.
+
+        A long horizontal drag on empty map space is the same gesture a human
+        uses to move the globe and unpin the selected zone. Keep the path clear of
+        the left panel, top resource bar and bottom navigation buttons.
 
         Returns:
-            bool: 是否处理了弹窗。
+            bool: Whether an unpin gesture was sent.
         """
         if not self._zone_unpin_interval.reached():
             return False
 
         if self.is_zone_pinned():
-            # A click does not disable pinned zone, a swipe does.
-            self.device.swipe_vector(
-                (50, -50), box=area_pad(ZONE_PINNED.area, pad=-80), random_range=(-10, -10, 10, 10),
-                padding=0, name='PINNED_DISABLE')
+            # This gesture must begin inside the left pinned-zone detail panel.
+            # Map-space drags in every cardinal direction leave the panel open;
+            # the measured native-ADB gesture below closes it immediately on
+            # reDroid. Bypass MaaTouch only for this drag because orientation=2
+            # makes its map gestures ineffective, while ordinary clicks remain
+            # reliable through MaaTouch.
+            self.device.handle_control_check('PINNED_DISABLE')
+            self.device.swipe_adb((460, 420), (300, 250), duration=0.7)
             self._zone_unpin_interval.reset()
             return True
 

@@ -145,8 +145,34 @@ class GGU2(Base):
                         logger.info('In GG overview')
                         self.device.sleep(3)
                     deadline = time.monotonic() + 120
+                    empty_since = None
+                    clean_restart_done = False
                     while time.monotonic() < deadline:
                         self.device.sleep(0.5)
+
+                        # Android 11 sometimes leaves GG in its self-drawn help/
+                        # panel canvas after Cancel. That window has an empty
+                        # accessibility tree, so every selector below is absent
+                        # and the state machine used to wait forever. Recover once
+                        # by restarting GG into its accessible starter page. Alas
+                        # owns this transition; the host watchdog never touches
+                        # GG UI.
+                        xml = self.d.dump_hierarchy(compressed=False)
+                        has_gg_node = self.gg_package_name in xml
+                        if not has_gg_node:
+                            if empty_since is None:
+                                empty_since = time.monotonic()
+                            elif not clean_restart_done and time.monotonic() - empty_since >= 5:
+                                logger.info('GG accessibility tree empty; clean restart to starter page')
+                                self.d.app_stop(self.gg_package_name)
+                                self.device.sleep(1)
+                                self.d.app_start(self.gg_package_name)
+                                self.device.sleep(5)
+                                clean_restart_done = True
+                                empty_since = None
+                                continue
+                        else:
+                            empty_since = None
                         ignore_xpath = '//*[@text="忽略" or @text="IGNORE" or @text="Ignore"]'
                         if self.d.xpath(ignore_xpath).exists:
                             self._click_xpath(ignore_xpath)
@@ -195,8 +221,11 @@ class GGU2(Base):
                             self._click_xpath(run_xpath)
                             logger.info('Click run Scripts')
                             self.device.sleep(0.3)
-                            if self._run():
+                            run_result = self._run()
+                            if run_result == 1:
                                 return 1
+                            if run_result == -1:
+                                return 0
                             continue
                         cancel_xpath = '//*[@text="取消" or @text="CANCEL" or @text="Cancel"]'
                         if self.d.xpath(cancel_xpath).exists:
@@ -221,11 +250,26 @@ class GGU2(Base):
             finally:
                 pass
 
+    def _read_multiplier_status(self) -> str:
+        """Read the completion marker written by Multiplier.lua.
+
+        GameGuardian's search/progress dialogs are custom canvas overlays and are
+        invisible to uiautomator. UI disappearance therefore cannot be used as a
+        completion signal. The Lua script writes this marker only after every
+        search/refine/edit call has returned.
+        """
+        try:
+            status = self.device.adb_shell(
+                'if [ -f /sdcard/Notes/multiplier.status ]; then '
+                'cat /sdcard/Notes/multiplier.status; fi')
+        except Exception:
+            return ''
+        return str(status or '').strip()
+
     def _run(self):
-        _run = False
         _set = False
         _confirmed = False
-        import os
+        _submitted = False
         _repush = deep_get(self.config.data, keys='GGManager.GGHandler.RepushLua')
         if _repush:
             # os.popen(f'"toolkit/Lib/site-packages/adbutils/binaries/adb.exe" -s'
@@ -244,18 +288,38 @@ class GGU2(Base):
             self.device.adb_push("bin/Lua/Multiplier.lua", "/sdcard/Notes/Multiplier.lua")
             self.device.sleep(0.5)
             logger.info('Lua Pushed')
-        deadline = time.monotonic() + 90
+        # A stale marker must never make a new invocation look successful.
+        self.device.adb_shell('rm -f /sdcard/Notes/multiplier.status')
+
+        deadline = time.monotonic() + 180
         while time.monotonic() < deadline:
             self.device.sleep(1)
-            if self.d(resourceId=f"{self.gg_package_name}:id/file").exists:
+
+            status = self._read_multiplier_status()
+            if status.startswith('ok:'):
+                logger.info(f'GG multiplier completed: {status}')
+                GGData(self.config).set_data(target='gg_on', value=True)
+                logger.attr('GG', 'Enabled')
+                logger.info('Close the script')
+                break
+            if status.startswith('not_found:'):
+                logger.warning('GG multiplier search found no target value')
+                return -1
+            if status.startswith('cancel:'):
+                logger.warning('GG multiplier prompt was cancelled')
+                return -1
+
+            # Submit the native file dialog exactly once. It remains visible for
+            # a short period while GG starts the script and is outside the
+            # accessibility tree; repeatedly tapping it races with the search UI.
+            if not _submitted and self.d(resourceId=f"{self.gg_package_name}:id/file").exists:
                 file_input = self.d(resourceId=f"{self.gg_package_name}:id/file")
                 if file_input.get_text() != "/sdcard/Notes/Multiplier.lua":
                     file_input.send_keys("/sdcard/Notes/Multiplier.lua")
                     logger.info('Lua path set')
-                # GG's native file picker is outside Accessibility on Android
-                # 11. Submit it through normal Android coordinates.
                 self._submit_native_file_dialog()
                 logger.info('Click Run (native dialog fallback)')
+                _submitted = True
                 continue
             execute_xpath = '//*[@text="执行" or @text="EXECUTE" or @text="Execute"]'
             if self.d.xpath(execute_xpath).exists:
@@ -279,23 +343,12 @@ class GGU2(Base):
                 logger.info("Click confirm")
                 self.device.sleep(0.5)
                 _confirmed = True
-            self.d.wait_timeout = 90.0
-
-            if _set and _confirmed:
-                try:
-                    if self.d.xpath(confirm_xpath).exists:
-                        self._click_xpath(confirm_xpath)
-                    GGData(self.config).set_data(target='gg_on', value=True)
-                finally:
-                    pass
-                GGData(self.config).set_data(target='gg_on', value='True')
-                logger.attr('GG', 'Enabled')
-                logger.info("Close the script")
+            # _set/_confirmed only mean the prompt was submitted. Search can
+            # continue for tens of seconds afterwards, so do not mark GG enabled
+            # until Lua writes multiplier.status.
             self.d.wait_timeout = 3
-            if _set and _confirmed:
-                break
         else:
-            logger.warning('GG multiplier setup timed out after 90 seconds')
+            logger.warning('GG multiplier setup timed out after 180 seconds')
             return 0
         logger.hr('GG Enabled', level=2)
         # Keep GG and its root daemon alive after configuring the multiplier.

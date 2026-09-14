@@ -16,60 +16,92 @@ function Main1()
 	FX=false
 end
 
+function writeStatus(status, count)
+    local file = io.open("/sdcard/Notes/multiplier.status", "w")
+    if file ~= nil then
+        file:write(status .. ":" .. tostring(count or 0))
+        file:close()
+    end
+end
+
 function HS9()
     x = gg.prompt({"伤害倍数(默认200倍)"},{"200"},{number})
+    if x == nil then
+        writeStatus("cancel", 0)
+        return
+    end
     n = x[1]
-	-- 清除
+    os.remove("/sdcard/Notes/multiplier.status")
+
+	-- 第一次搜索（DOUBLE）
 	gg.clearResults()
 	gg.setRanges(32)
-	-- 第一次搜索
 	gg.searchNumber("0.0001;1::30", gg.TYPE_DOUBLE, false, gg.SIGN_EQUAL, 0, -1, 0)
 	gg.refineNumber("1", gg.TYPE_DOUBLE, false, gg.SIGN_EQUAL, 0, -1, 0)
-	gg.getResults(100)
-	gg.editAll(n, gg.TYPE_DOUBLE)
-	gg.getResultCount(results)
-	-- 判断
-	if results==nil then
-		-- 清除
+	local results = gg.getResultCount()
+	if results > 0 then
+		gg.getResults(math.min(results, 100))
+		gg.editAll(n, gg.TYPE_DOUBLE)
+	else
+		-- 第一种类型无结果时才尝试 DWORD。旧代码调用
+		-- gg.getResultCount(results) 却没有接收返回值，results 永远为 nil，
+		-- 导致每次都无条件执行第二轮搜索。
 		gg.clearResults()
 		gg.setRanges(32)
-		-- 第二次搜索
 		gg.searchNumber("0.0001E;1D::30", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1)
-		gg.refineNumber("1D", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1)
-		gg.getResults(100)
-		gg.editAll(n, gg.TYPE_DWORD)
+		gg.refineNumber("1D", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1, 0)
+		results = gg.getResultCount()
+		if results > 0 then
+			gg.getResults(math.min(results, 100))
+			gg.editAll(n, gg.TYPE_DWORD)
+		end
 	end
-	-- 清除
+
 	gg.clearResults()
-	gg.toast("修改成功")
+	if results > 0 then
+		writeStatus("ok", results)
+		gg.toast("修改成功")
+	else
+		writeStatus("not_found", 0)
+		gg.alert("未找到倍率数据，请确认已选择碧蓝航线主进程并进入游戏")
+	end
 end
 
 function HS666()
     x = gg.prompt({"还原倍数(默认200倍)"},{"200"},{number})
+    if x == nil then
+        writeStatus("cancel", 0)
+        return
+    end
     n = x[1]
-	-- 清除
+
 	gg.clearResults()
 	gg.setRanges(32)
-	-- 第一次搜索
 	gg.searchNumber("0.0001;"..n.."::30", gg.TYPE_DOUBLE, false, gg.SIGN_EQUAL, 0, -1, 0)
 	gg.refineNumber(n, gg.TYPE_DOUBLE, false, gg.SIGN_EQUAL, 0, -1, 0)
-	gg.getResults(100)
-	gg.editAll("1", gg.TYPE_DOUBLE)
-	gg.getResultCount(results)
-	-- 判断
-	if results==nil then
-		-- 清除
+	local results = gg.getResultCount()
+	if results > 0 then
+		gg.getResults(math.min(results, 100))
+		gg.editAll("1", gg.TYPE_DOUBLE)
+	else
 		gg.clearResults()
 		gg.setRanges(32)
-		-- 第二次搜索
 		gg.searchNumber("0.0001E;"..n.."::30", gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1)
 		gg.refineNumber(n, gg.TYPE_DWORD, false, gg.SIGN_EQUAL, 0, -1)
-		gg.getResults(100)
-		gg.editAll("1", gg.TYPE_DWORD)
+		results = gg.getResultCount()
+		if results > 0 then
+			gg.getResults(math.min(results, 100))
+			gg.editAll("1", gg.TYPE_DWORD)
+		end
 	end
-	-- 清除
+
 	gg.clearResults()
-	gg.toast("还原成功")
+	if results > 0 then
+		writeStatus("restore_ok", results)
+		gg.toast("还原成功")
+	else
+		writeStatus("restore_not_found", 0)
+	end
 end
 
 function exit()
