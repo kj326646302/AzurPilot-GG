@@ -22,14 +22,27 @@ jobs:
           ref: alasgg-features
           fetch-depth: 0
 
-      - name: Configure Git
+      - name: Configure Git and fetch both upstreams
         run: |
           git config user.name "AzurPilot-GG Sync"
           git config user.email "alasgg-sync@users.noreply.github.com"
           git remote add upstream https://github.com/wess09/AzurPilot.git || true
+          git remote set-url upstream https://github.com/wess09/AzurPilot.git
+          git remote add official https://github.com/LmeSzinc/AzurLaneAutoScript.git || true
+          git remote set-url official https://github.com/LmeSzinc/AzurLaneAutoScript.git
           git fetch upstream master --prune
+          git fetch official master --prune
 
-      - name: Rebase GG commits onto upstream
+      - name: Verify AzurPilot contains latest official ALAS
+        run: |
+          if ! git merge-base --is-ancestor official/master upstream/master; then
+            echo "AzurPilot upstream/master does not yet contain official ALAS master." >&2
+            echo "Refusing to publish a branch that silently misses official updates." >&2
+            exit 1
+          fi
+          echo "official ALAS is contained in AzurPilot upstream/master"
+
+      - name: Rebase GG commits onto AzurPilot upstream
         run: git rebase upstream/master
 
       - name: Validate GG integration and assets
