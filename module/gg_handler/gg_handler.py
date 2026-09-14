@@ -86,6 +86,32 @@ class GGHandler:
                                'GGManager.GGHandler.GGMethod',
                                default='screenshot')
 
+    def _stop_gg_before_restart(self):
+        """Stop GameGuardian before the game is restarted.
+
+        GG watches the process it is attached to. When Alas force-stops the game
+        while GG is still running, GG raises its own modal "Game dead" dialog
+        ("Exit" / "Restart the game" / "Restart the game (without protection)").
+        That dialog is drawn on GG's own canvas with DIM_BEHIND, so it is neither
+        present in the accessibility tree nor dismissible through it: the screen
+        stays dimmed and static, Alas reports GameStuckError, the Restart task is
+        treated as a recoverable error and is rescheduled immediately, and the
+        whole pipeline loops on Restart forever. Stopping GG first means GG never
+        observes its target disappearing.
+        """
+        gg_package_name = deep_get(self.config.data,
+                                   keys='GGManager.GGHandler.GGPackageName',
+                                   default='com.sztketgxvxx')
+        device = self.device
+        if device is None:
+            return
+        try:
+            device.adb_shell(['am', 'force-stop', gg_package_name])
+            logger.info(f'[GG] Stopped {gg_package_name} before restarting the game')
+        except Exception as e:
+            logger.warning(f'[GG] Could not stop {gg_package_name}: {e}')
+        GGData(config=self.config).set_data(target='gg_on', value=False)
+
     def restart(self, crashed=False):
         from module.handler.login import LoginHandler
         from module.exception import GameStuckError
@@ -93,6 +119,7 @@ class GGHandler:
         attempt_count = 0 
         while True:  # 使用无限循环
             try:
+                self._stop_gg_before_restart()
                 if not timeout(LoginHandler(config=self.config, device=self.device).app_restart, timeout_sec=600):
                     logger.info(f"Game restarted successfully after {attempt_count + 1} attempts.")
                     break
@@ -126,6 +153,8 @@ class GGHandler:
         if mode:
             logger.hr('Enabling GG')
             self.handle_u2_restart()
+            # Orphaned daemons from earlier runs confuse GG's own liveness check.
+            self._kill_stale_gg_daemons()
             success = timeout(GGU2(config=self.config, device=self.device).set_on, timeout_sec=deep_get(self.config.data, "GGManager.GGHandler.Timeout"), factor=self.factor)
             if success:
                 from module.exception import GameStuckError
@@ -171,6 +200,39 @@ class GGHandler:
             f'Enabled={gg_data["gg_enable"]} AutoRestart={gg_data["gg_auto"]} Current stage={gg_data["gg_on"]}')
         return gg_data
 
+    def _kill_stale_gg_daemons(self):
+        """
+        Remove GameGuardian daemons left behind by earlier GG runs.
+
+        GG starts its daemon by writing `exec <lib2.so> ...` into a root shell.
+        On this device that shell is provided by the privileged su daemon, so the
+        GG daemon is a child of su_daemon rather than of GG itself. It therefore
+        survives a GG restart as an orphan. Left alone, those orphans pile up
+        across restarts (several were observed at once), each holding the same
+        IPC endpoints, and GG then reports "Daemon is not running" even though a
+        daemon is running.
+
+        Called before GG is started, so every process in this set is stale by
+        definition.
+        """
+        script = (
+            'for d in /proc/[0-9]*; do '
+            'p=${d#/proc/}; '
+            'e=$(readlink $d/exe 2>/dev/null); '
+            'case "$e" in *lib2.so*) '
+            'pp=$(awk "/^PPid:/{print \\$2}" $d/status 2>/dev/null); '
+            'pn=$(cat /proc/$pp/comm 2>/dev/null); '
+            'case "$pn" in su_daemon|su_setuid|sh) kill -9 "$p" 2>/dev/null; echo "killed gg daemon $p";; esac; '
+            ';; esac; done'
+        )
+        try:
+            out = self.device.adb_shell(f"su -c '{script}'", timeout=20)
+            killed = [line for line in str(out).splitlines() if 'killed gg daemon' in line]
+            if killed:
+                logger.info(f'Cleaned {len(killed)} stale GG daemon(s)')
+        except Exception as e:
+            logger.info(f'Stale GG daemon cleanup skipped: {e}')
+
     def handle_u2_restart(self):
         _need_restart_atx = deep_get(d=self.config.data, keys='GGManager.GGHandler.RestartATX')
         if _need_restart_atx:
@@ -198,8 +260,19 @@ class GGHandler:
             logger.info(f'GG status:')
             logger.info(
                 f'Enabled={gg_data["gg_enable"]} AutoRestart={gg_data["gg_auto"]} Current stage={gg_data["gg_on"]}')
-            if not self.skip_error():
+            skipped = self.skip_error()
+            if not skipped:
                 logger.hr('Assume game died without GG panel')
+            # Either way GameGuardian may be sitting on its own "Game dead" modal
+            # ("Exit" / "Restart the game" / "Restart the game (without
+            # protection)"). That dialog is drawn on GG's canvas with DIM_BEHIND,
+            # so it is not in the accessibility tree, cannot be found by xpath and
+            # cannot be dismissed through it: it keeps the screen dimmed and
+            # static, Alas then reports GameStuckError, the Restart task counts as
+            # a recoverable error, and the pipeline loops on Restart forever.
+            # Stopping GG removes the dialog and lets the game render again; GG is
+            # re-enabled later through the normal set(True) path.
+            self._stop_gg_before_restart()
 
     def gg_reset(self):
         """
