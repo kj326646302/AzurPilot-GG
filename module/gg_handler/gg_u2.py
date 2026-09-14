@@ -41,9 +41,63 @@ class GGU2(Base):
         self.device.adb_shell(['input', 'tap', 960, 176])
         self.device.sleep(1)
 
+    def _foreground_package(self) -> str:
+        """Return the package of the activity currently in the foreground."""
+        try:
+            out = self.device.adb_shell(['dumpsys', 'activity', 'activities'], timeout=15)
+        except Exception:
+            return ''
+        for line in str(out).splitlines():
+            if 'mResumedActivity' in line:
+                # ... ActivityRecord{... u0 com.example/.MainActivity t123}
+                for token in line.split():
+                    if '/' in token and '.' in token:
+                        return token.split('/')[0]
+        return ''
+
     def _return_to_game(self):
-        self.device.app_start()
-        logger.info('Return to Azur Lane and keep GG daemon in background')
+        """Bring the game back to the foreground and verify that it worked.
+
+        GG opens its own activity while Alas drives the multiplier, and simply
+        calling app_start() afterwards is not reliable on this reDroid: GG's
+        MainActivity stayed resumed, so Alas screenshotted GG instead of the
+        game, its taps landed on GG's window, and the game's title screen never
+        advanced -- which shows up as "GameTooManyClickError: STORY_CLOSE,
+        LOGIN_ANNOUNCE_2" and then a Restart.
+        """
+        # Device.package is the resolved game package (config.package is None).
+        game_package = getattr(self.device, 'package', None)
+        if not game_package or game_package == 'auto':
+            logger.warning('[GG] game package is unknown; skipping foreground check')
+            self.device.app_start()
+            logger.info('Return to Azur Lane and keep GG daemon in background')
+            return
+        for attempt in range(3):
+            try:
+                self.device.app_start()
+            except Exception as e:
+                logger.warning(f'[GG] app_start failed: {e}')
+            self.device.sleep(1.5)
+
+            current = self._foreground_package()
+            if current == game_package:
+                logger.info('Return to Azur Lane and keep GG daemon in background')
+                return
+            logger.info(f'[GG] foreground is {current or "unknown"}, bringing the game back')
+            try:
+                self.device.adb_shell([
+                    'am', 'start', '-n',
+                    f'{game_package}/com.manjuu.azurlane.MainActivity',
+                ], timeout=15)
+            except Exception as e:
+                logger.warning(f'[GG] am start game failed: {e}')
+            self.device.sleep(2)
+
+        current = self._foreground_package()
+        if current != game_package:
+            logger.warning(f'[GG] game is still not in the foreground (current={current})')
+        else:
+            logger.info('Return to Azur Lane and keep GG daemon in background')
 
     def exit(self):
         # Keep the GG root daemon alive. Killing the package makes the host
