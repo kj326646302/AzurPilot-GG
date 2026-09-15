@@ -283,6 +283,19 @@ class UI(InfoHandler):
         login_handler.handle_app_login()
         return self.ui_get_current_page(skip_first_screenshot=True)
 
+    def _click_navigation_button(self, button):
+        """Click a page-navigation button with reDroid-specific fallbacks."""
+        if (button == MAIN_GOTO_CAMPAIGN_WHITE
+                and self.config.DEVICE_CONTROL_METHOD == 'MaaTouch'):
+            # On reDroid with orientation=2 the white-theme sortie entrance
+            # occasionally ignores MaaTouch even though the template remains a
+            # perfect match. Record the logical click for loop protection, but
+            # send this transition through Android's native coordinates.
+            self.device.handle_control_check(button)
+            self.device.adb_shell(['input', 'tap', 1192, 508])
+            return
+        self.device.click(button)
+
     def ui_goto(self, destination, get_ship=True, offset=(30, 30), skip_first_screenshot=True,
                 recover_unknown=True):
         """
@@ -327,7 +340,7 @@ class UI(InfoHandler):
                 if self.appear(page.check_button, offset=offset, interval=5):
                     logger.info(f'[UI] 页面切换: {page} -> {page.parent}')
                     button = page.links[page.parent]
-                    self.device.click(button)
+                    self._click_navigation_button(button)
                     self.ui_button_interval_reset(button)
                     clicked = True
                     break
