@@ -28,6 +28,7 @@ function HS9()
     x = gg.prompt({"伤害倍数(默认200倍)"},{"200"},{number})
     if x == nil then
         writeStatus("cancel", 0)
+        gg.setVisible(false)
         return
     end
     n = x[1]
@@ -63,14 +64,19 @@ function HS9()
 		gg.toast("修改成功")
 	else
 		writeStatus("not_found", 0)
-		gg.alert("未找到倍率数据，请确认已选择碧蓝航线主进程并进入游戏")
+		gg.toast("未找到倍率数据，请确认已进入游戏")
 	end
+	-- Always hide GameGuardian after the script completes. Android Back returns
+	-- from the result layer to the Execute Script dialog and leaves GG covering
+	-- the game, so Alas sees the game screenshot but every tap is intercepted.
+	gg.setVisible(false)
 end
 
 function HS666()
     x = gg.prompt({"还原倍数(默认200倍)"},{"200"},{number})
     if x == nil then
         writeStatus("cancel", 0)
+        gg.setVisible(false)
         return
     end
     n = x[1]
@@ -102,6 +108,7 @@ function HS666()
 	else
 		writeStatus("restore_not_found", 0)
 	end
+	gg.setVisible(false)
 end
 
 function exit()

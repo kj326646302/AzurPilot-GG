@@ -377,6 +377,10 @@ class GGU2(Base):
             logger.warning('GG multiplier setup timed out after 180 seconds')
             return 0
         logger.hr('GG Enabled', level=2)
+        # Multiplier.lua hides GG itself after writing the completion marker.
+        # Android Back is deliberately not used here: it navigates from the result
+        # layer back to GG's Execute Script dialog and leaves that overlay covering
+        # the game.
         # Keep GG and its root daemon alive after configuring the multiplier.
         # Force-stopping GG kills the daemon; the host watchdog then reopens the
         # full GG activity over the game and intercepts every Alas tap.

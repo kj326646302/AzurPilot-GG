@@ -42,6 +42,30 @@ if not (hasattr(utils, 'deep_get') and hasattr(utils, 'deep_set')):
 # 然后再从 utils 模块导入 deep_get 和 deep_set
 from module.config.utils import deep_get, deep_set
 
+def _call_with_timeout_result(func, timeout_sec=30.0, *args, **kwargs):
+    """Run a callable with a deadline while preserving its result/exception."""
+    outcome = {"done": False, "result": None, "error": None}
+
+    def target():
+        try:
+            outcome["result"] = func(*args, **kwargs)
+        except BaseException as error:
+            outcome["error"] = error
+        finally:
+            outcome["done"] = True
+
+    thread = Thread(target=target, daemon=True)
+    thread.start()
+    deadline = Timer(timeout_sec).start()
+    while not outcome["done"]:
+        if deadline.reached():
+            logger.warning(f"Timeout: {func.__name__} exceeded {timeout_sec}s")
+            return True, None
+    if outcome["error"] is not None:
+        raise outcome["error"]
+    return False, outcome["result"]
+
+
 def timeout(func, timeout_sec=30.0, *args, **kwargs):
     """
     使用 Timer 实现一个简易 timeout。
@@ -155,10 +179,28 @@ class GGHandler:
             self.handle_u2_restart()
             # Orphaned daemons from earlier runs confuse GG's own liveness check.
             self._kill_stale_gg_daemons()
-            success = timeout(GGU2(config=self.config, device=self.device).set_on, timeout_sec=deep_get(self.config.data, "GGManager.GGHandler.Timeout"), factor=self.factor)
-            if success:
+            gg_u2 = GGU2(config=self.config, device=self.device)
+            timed_out, result = _call_with_timeout_result(
+                gg_u2.set_on,
+                timeout_sec=deep_get(
+                    self.config.data, "GGManager.GGHandler.Timeout"),
+                factor=self.factor,
+            )
+            if timed_out or result != 1:
                 from module.exception import GameStuckError
-                raise GameStuckError
+                reason = 'timeout' if timed_out else f'result={result}'
+                logger.warning(f'GG multiplier enable failed ({reason}); abort current task')
+                try:
+                    # Close GG's custom-canvas alert (for example "Nothing
+                    # found") and then remove its overlay. The root daemon is
+                    # restarted on the next clean enable attempt.
+                    self.device.adb_shell([
+                        'am', 'force-stop', gg_package_name])
+                    self.device.app_start()
+                except Exception as error:
+                    logger.warning(f'GG failure cleanup failed: {error}')
+                GGData(config=self.config).set_data(target='gg_on', value=False)
+                raise GameStuckError(f'GG multiplier enable failed: {reason}')
             # GG 设完后, 游戏一定已加载完 Lua 模块, 现在注入 Frida hook
             self._ensure_frida()
             # Not support screenshot anymore
