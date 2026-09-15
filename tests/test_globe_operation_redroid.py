@@ -17,7 +17,7 @@ class GlobeOperationRedroidTest(unittest.TestCase):
 
         handler.device.handle_control_check.assert_called_once_with('PINNED_DISABLE')
         handler.device.swipe_adb.assert_called_once_with(
-            (460, 420), (300, 250), duration=0.7)
+            (483, 449), (533, 399), duration=0.2)
         handler._zone_unpin_interval.reset.assert_called_once_with()
         handler.device.swipe.assert_not_called()
 
