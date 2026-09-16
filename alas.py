@@ -912,10 +912,6 @@ class AzurLaneAutoScript:
                 title=f" <{self.config_name}> 发出了警告喵！",
                 content=f"<{self.config_name}> 游戏未运行喵 将自动重启游戏喵~",
             )
-            # Do not leave the failed task overdue. Otherwise Restart finishes
-            # and the same high-priority task is selected again immediately,
-            # starving every task behind it.
-            self.config.task_delay(success=False)
             self.config.task_call('Restart')
             return 'recoverable'
         except (GameStuckError, GameTooManyClickError) as e:
@@ -953,10 +949,6 @@ class AzurLaneAutoScript:
                 title=f"<{self.config_name}> 发出了警告喵！",
                 content=f"<{self.config_name}> 游戏卡住 将自动重启游戏喵~",
             )
-            # Back off the task that failed before scheduling Restart. Without
-            # this, its stale NextRun remains in the past and it immediately
-            # wins the scheduler again, creating Task -> Restart starvation.
-            self.config.task_delay(success=False)
             self.config.task_call('Restart')
             self.device.sleep(10)
             return 'recoverable'

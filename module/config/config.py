@@ -724,29 +724,6 @@ class AzurLaneConfig(ConfigUpdater, ManualConfig, GeneratedConfig, ConfigWatcher
                 return True
         prev = getattr(self, '_task_switch_owner', self.task)
         self.load()
-        self.get_next_task()
-
-        # A zero-success-interval farming task can keep an ancient NextRun (for
-        # example Event=2020-01-01) and therefore remain first in the priority
-        # queue forever. Campaign loops call task_switched() after every map, but
-        # without this fairness rule they always select themselves and starve all
-        # other overdue tasks. Yield for five minutes after one map whenever
-        # another enabled task is already pending; the farming task remains
-        # enabled and automatically returns after the backlog gets a chance.
-        success_interval = self.cross_get(
-            keys=f'{prev.command}.Scheduler.SuccessInterval', default=None)
-        other_pending = [
-            task for task in self.pending_task
-            if task.command != prev.command
-        ]
-        if success_interval == 0 and other_pending:
-            logger.info(
-                f"[配置] 零间隔任务 `{prev.command}` 主动让出调度权，"
-                f"待处理: {[task.command for task in other_pending]}"
-            )
-            self.task_delay(minute=5, task=prev.command)
-            return True
-
         new = self.get_next()
         if prev == new:
             logger.info(f"[配置] 继续任务 `{new}`")

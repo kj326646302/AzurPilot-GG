@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from alas import AzurLaneAutoScript
-from module.exception import GameNotRunningError, GameTooManyClickError
+from module.exception import GameNotRunningError
 from module.logger import error_context
 
 
@@ -76,7 +76,6 @@ class TestGameNotRunningErrorHandling(unittest.TestCase):
             result = script.run('commission', skip_first_screenshot=True)
 
         self.assertEqual('recoverable', result)
-        script.config.task_delay.assert_called_once_with(success=False)
         script.config.task_call.assert_called_once_with('Restart')
         error_context_mock.assert_called_once_with(
             title='游戏进程未运行',
@@ -87,32 +86,3 @@ class TestGameNotRunningErrorHandling(unittest.TestCase):
             level=30,
             with_traceback=False,
         )
-
-
-class TestRecoverableFailureBackoff(unittest.TestCase):
-    def test_too_many_clicks_delays_failed_task_before_restart(self):
-        script = AzurLaneAutoScript.__new__(AzurLaneAutoScript)
-        script.config_name = 'test'
-        script._channel_float_done = True
-        script.consecutive_game_stuck = 0
-        script.__dict__['config'] = Mock()
-        script.__dict__['device'] = Mock()
-        script.config.cross_get.return_value = False
-        script.config.Error_GameStuckRestart = False
-        script.config.Error_OnePushConfig = None
-        script.device.package = 'com.bilibili.azurlane'
-        script.__dict__['opsi_shop'] = Mock(
-            side_effect=GameTooManyClickError('PINNED_DISABLE')
-        )
-        script.save_error_log = Mock()
-
-        with (
-            patch('alas.logger.error_context'),
-            patch('alas.handle_notify'),
-            patch('alas.notify_webui'),
-        ):
-            result = script.run('opsi_shop', skip_first_screenshot=True)
-
-        self.assertEqual('recoverable', result)
-        script.config.task_delay.assert_called_once_with(success=False)
-        script.config.task_call.assert_called_once_with('Restart')
