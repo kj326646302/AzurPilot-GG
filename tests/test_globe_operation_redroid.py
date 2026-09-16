@@ -6,7 +6,7 @@ from module.os.globe_camera import GlobeCamera
 
 
 class GlobeOperationRedroidTest(unittest.TestCase):
-    def test_pinned_zone_uses_measured_native_adb_gesture(self):
+    def test_pinned_zone_uses_upstream_swipe_vector(self):
         handler = GlobeOperation.__new__(GlobeOperation)
         handler.device = Mock()
         handler._zone_unpin_interval = Mock()
@@ -15,11 +15,15 @@ class GlobeOperationRedroidTest(unittest.TestCase):
 
         self.assertTrue(handler.handle_zone_pinned())
 
-        handler.device.handle_control_check.assert_called_once_with('PINNED_DISABLE')
-        handler.device.swipe_adb.assert_called_once_with(
-            (483, 449), (533, 399), duration=0.2)
+        handler.device.swipe_vector.assert_called_once_with(
+            (50, -50),
+            box=(423, 339, 594, 510),
+            random_range=(-10, -10, 10, 10),
+            padding=0,
+            name='PINNED_DISABLE',
+        )
         handler._zone_unpin_interval.reset.assert_called_once_with()
-        handler.device.swipe.assert_not_called()
+        handler.device.swipe_adb.assert_not_called()
 
     def test_pinned_zone_does_nothing_before_interval(self):
         handler = GlobeOperation.__new__(GlobeOperation)
