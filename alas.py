@@ -868,7 +868,7 @@ class AzurLaneAutoScript:
             bool | str:
                 True — 任务成功完成。
                 False — 不可恢复的失败，计入连续失败限制。
-                'recoverable' — 可恢复的失败，不计入连续失败限制。
+                'recoverable' — 已安排自动恢复的失败，仍计入连续失败上限。
         """
         try:
             if not skip_first_screenshot:
@@ -2140,19 +2140,11 @@ class AzurLaneAutoScript:
                     except Exception:
                         logger.warning('[Alas] 每任务推送通知异常，已跳过')
 
-                # 检查失败
-                # 任务失败次数统计：可恢复错误 (success == 'recoverable') 不计入失败次数。
-                # 非敏感任务永不退出，连续失败时强制重启模拟器+游戏恢复；
-                # 敏感任务（StrictRestart=True 且 Sensitive=True）失败后立即退出。
+                # 恢复上游的有界失败语义：任何未成功结果（包括执行过一次
+                # 自动恢复的 recoverable）都计入当前任务失败次数。否则同一个
+                # 过期任务会永久 Task -> Restart -> Task，饿死后续队列。
                 failed = deep_get(self.failure_record, keys=task, default=0)
-                if success == True:
-                    failed = 0  # 成功，重置计数
-                elif success == 'recoverable':
-                    # 可恢复错误（如 GameStuckError），不增加失败计数
-                    # 但也不重置，保持之前的计数
-                    logger.info(f'[Alas] 任务 `{task}` 遇到可恢复错误，不计入失败限制')
-                else:
-                    failed = failed + 1  # 不可恢复错误，增加计数
+                failed = 0 if success is True else failed + 1
                 deep_set(self.failure_record, keys=task, value=failed)
 
                 strict_restart = self.config.Error_StrictRestart and failed >= 1 and self.config.cross_get(
@@ -2182,28 +2174,25 @@ class AzurLaneAutoScript:
                     exit(1)
 
                 if failed >= 3:
-                    # 非敏感任务连续失败：不退出，强制重启模拟器+游戏后继续调度
-                    logger.warning(
-                        f'[Alas] 任务 `{task}` 已连续失败 {failed} 次，'
-                        f'非敏感任务不退出，强制重启模拟器+游戏后继续调度。'
+                    logger.error_context(
+                        title=f'任务连续失败次数已达上限（{task}）',
+                        reason=f'任务已连续失败 {failed} 次，自动重启未能恢复。',
+                        impact='为避免同一任务与 Restart 永久循环并饿死其他任务，AzurPilot 将停止运行。',
+                        action='查看最近错误现场，修复配置、资源或设备状态后再启动。',
+                        level=50,
                     )
                     handle_notify(
                         self.config.Error_OnePushConfig,
-                        title=f"AzurPilot <{self.config_name}> 警告",
-                        content=f"<{self.config_name}> 任务 `{task}` 连续失败 {failed} 次，将强制重启恢复",
+                        title=f"AzurPilot <{self.config_name}> crashed",
+                        content=f"<{self.config_name}> RequestHumanTakeover\nTask `{task}` failed {failed} or more times.",
                     )
                     notify_webui(
                         self.config_name,
-                        title=f"{self.config_name} 出了点小问题喵~",
-                        content=f"任务 `{task}` 失败次数过多喵 正在强制重启恢复喵",
+                        title=f"出大问题了喵！{self.config_name}停止了喵！",
+                        content=f"任务 `{task}` 连续失败 {failed} 次，已停止以避免无限重启。",
                     )
-                    try:
-                        self._try_restart_emulator()
-                    except Exception as restart_emu_e:
-                        logger.warning(f'[Alas] 模拟器重启失败，将继续调度: {restart_emu_e}')
-                    self.config.task_call('Restart')
-                    # 重置该任务的失败计数，避免下次循环立即再次触发
-                    deep_set(self.failure_record, keys=task, value=0)
+                    self._stop_daily_summary_scheduler()
+                    break
 
                 if success == True:
                     del_cached_property(self, 'config')
@@ -2213,7 +2202,7 @@ class AzurLaneAutoScript:
                     self.consecutive_unexpected_error = 0
                     continue
                 elif success == 'recoverable' or self.config.Error_HandleError:
-                    # 可恢复错误或启用了错误处理，刷新配置后继续循环
+                    # 可恢复错误仅允许在三次失败上限内继续；达到上限已在上方停止。
                     del_cached_property(self, 'config')
                     self.checker.check_now()
                     continue
