@@ -802,9 +802,9 @@ class AzurLaneAutoScript:
 
     def _check_sensitive_exit(self, command, error):
         """
-        检查当前任务是否为敏感任务，如果是则直接退出。
+        在全局 StrictRestart 开启且当前任务标记为敏感时直接退出。
 
-        敏感任务出错时不做任何重启或恢复，完全停止 Alas 运行。
+        StrictRestart 关闭时，Sensitive 只是风险标签，不应单独终止 worker。
 
         Args:
             command (str): 任务方法名（下划线形式，如 opsi_cross_month）。
@@ -814,10 +814,11 @@ class AzurLaneAutoScript:
             bool: True 表示已退出（不会返回），False 表示非敏感任务，继续原有逻辑。
         """
         task_name = inflection.camelize(command)
+        strict_restart = bool(self.config.Error_StrictRestart)
         sensitive = self.config.cross_get(
             keys=f'{task_name}.Scheduler.Sensitive', default=False
         )
-        if not sensitive:
+        if not (strict_restart and sensitive):
             return False
 
         logger.error_context(

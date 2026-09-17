@@ -57,6 +57,32 @@ class TestGgTaskRouting(unittest.TestCase):
         script.restart.assert_called_once_with()
 
 
+class TestSensitiveTaskHandling(unittest.TestCase):
+    def _script(self, strict_restart, sensitive):
+        script = AzurLaneAutoScript.__new__(AzurLaneAutoScript)
+        script.config_name = 'test'
+        script.__dict__['config'] = Mock()
+        script.config.Error_StrictRestart = strict_restart
+        script.config.cross_get.return_value = sensitive
+        return script
+
+    def test_sensitive_task_does_not_exit_when_strict_restart_is_disabled(self):
+        script = self._script(strict_restart=False, sensitive=True)
+
+        self.assertFalse(script._check_sensitive_exit('opsi_obscure', RuntimeError('x')))
+
+    def test_sensitive_task_exits_when_strict_restart_is_enabled(self):
+        script = self._script(strict_restart=True, sensitive=True)
+
+        with (
+            patch('alas.logger.error_context'),
+            patch('alas.handle_notify'),
+            patch('alas.notify_webui'),
+            self.assertRaises(SystemExit),
+        ):
+            script._check_sensitive_exit('opsi_obscure', RuntimeError('x'))
+
+
 class TestGameNotRunningErrorHandling(unittest.TestCase):
     def test_schedules_restart_without_requesting_traceback(self):
         script = AzurLaneAutoScript.__new__(AzurLaneAutoScript)
