@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from alas import AzurLaneAutoScript
-from module.exception import GameNotRunningError
+from module.exception import GameNotRunningError, ScriptEnd
 from module.logger import error_context
 
 
@@ -81,6 +81,24 @@ class TestSensitiveTaskHandling(unittest.TestCase):
             self.assertRaises(SystemExit),
         ):
             script._check_sensitive_exit('opsi_obscure', RuntimeError('x'))
+
+
+class TestIntentionalScriptEndHandling(unittest.TestCase):
+    @patch('module.gg_handler.gg_handler.GGHandler')
+    def test_script_end_is_successful_control_flow(self, gg_handler):
+        script = AzurLaneAutoScript.__new__(AzurLaneAutoScript)
+        script.config_name = 'test'
+        script._channel_float_done = True
+        script.__dict__['config'] = Mock()
+        script.__dict__['device'] = Mock()
+        script.__dict__['opsi_ash_beacon'] = Mock(
+            side_effect=ScriptEnd('delayed by emotion guard')
+        )
+
+        result = script.run('opsi_ash_beacon', skip_first_screenshot=True)
+
+        self.assertTrue(result)
+        script.config.task_call.assert_not_called()
 
 
 class TestGameNotRunningErrorHandling(unittest.TestCase):

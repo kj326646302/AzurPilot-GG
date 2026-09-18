@@ -888,7 +888,11 @@ class AzurLaneAutoScript:
                 GGHandler(config=self.config, device=self.device).check_then_set_gg_status(command)
             self.__getattribute__(command)()
             return True
-        except TaskEnd:
+        except (TaskEnd, ScriptEnd):
+            # Both are intentional control-flow exits: the task has already
+            # delayed/disabled itself or reached a configured stop condition.
+            # Treating ScriptEnd as an unexpected exception causes needless
+            # Restart loops and eventually trips the three-failure fuse.
             return True
         except GameNotRunningError as e:
             # 游戏未运行，调度 Restart 任务自动恢复
