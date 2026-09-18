@@ -46,6 +46,15 @@ class StoryNoOptionTimeoutTest(unittest.TestCase):
             handler.device.click.call_args_list,
         )
 
+    def test_interval_throttled_second_check_does_not_reset_no_option_timeout(self):
+        handler = self._handler()
+        handler._story_no_option_timeout.reached.return_value = False
+        handler._story_confirm.reached.return_value = False
+        handler.appear.side_effect = [True, False]
+
+        self.assertFalse(handler.story_skip())
+        handler._story_no_option_timeout.reset.assert_not_called()
+
     def test_visible_options_reset_no_option_timeout(self):
         handler = self._handler()
         option = Mock()
