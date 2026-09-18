@@ -409,6 +409,11 @@ class InfoHandler(ModuleBase):
     _story_option_timer = Timer(2)
     _story_option_record = 0
     _story_option_confirm = Timer(0.3, count=0)
+    # Some OpSi item-use stories deliberately disable skipping while mandatory
+    # choices are present. In newer clients the final, choice-free dialogue can
+    # remain on screen indefinitely, so allow a delayed skip only after no option
+    # has been detected continuously for this window.
+    _story_no_option_timeout = Timer(15)
 
     def _story_option_buttons(self):
         """
@@ -581,6 +586,13 @@ class InfoHandler(ModuleBase):
             if not options_count:
                 self._story_option_record = 0
                 self._story_option_confirm.reset()
+                if not self.config.STORY_ALLOW_SKIP and self._story_no_option_timeout.reached():
+                    logger.info('[剧情] 必选项已结束且无选项持续15秒，点击跳过以结束剧情')
+                    self.device.click(STORY_SKIP)
+                    self._story_no_option_timeout.reset()
+                    self.story_popup_timeout.reset()
+                    self.interval_reset(STORY_SKIP_3)
+                    return True
             elif options_count == self._story_option_record:
                 if self._story_option_confirm.reached():
                     select = self._identify_siren_device_option(options)
@@ -605,6 +617,7 @@ class InfoHandler(ModuleBase):
                     self._story_option_confirm.reset()
                     return True
             else:
+                self._story_no_option_timeout.reset()
                 self._story_option_record = options_count
                 self._story_option_confirm.reset()
         if self.appear(STORY_SKIP_3, offset=(20, 20), interval=2):
@@ -628,6 +641,7 @@ class InfoHandler(ModuleBase):
                 self.interval_clear(STORY_SKIP_3)
         else:
             self._story_confirm.reset()
+            self._story_no_option_timeout.reset()
         if self.appear_then_click(STORY_CLOSE, offset=(10, 10), interval=2):
             self.story_popup_timeout.reset()
             return True
