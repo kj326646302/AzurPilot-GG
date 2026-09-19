@@ -641,6 +641,7 @@ class InfoHandler(ModuleBase):
                 self.interval_clear(STORY_SKIP_3)
         else:
             self._story_confirm.reset()
+            self._story_no_option_timeout.reset()
         if self.appear_then_click(STORY_CLOSE, offset=(10, 10), interval=2):
             self.story_popup_timeout.reset()
             return True
