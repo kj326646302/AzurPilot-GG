@@ -42,20 +42,20 @@ class MapEventHandler(EnemySearchingHandler):
         if self.appear(GET_ITEMS_1, interval=interval):
             if drop:
                 drop.handle_add(main=self, before=2)
-            logger.info(f'{GET_ITEMS_1} -> {CLICK_SAFE_AREA}')
-            self.device.click(CLICK_SAFE_AREA)
+            logger.info(f'{GET_ITEMS_1} -> {GET_ITEMS_1}')
+            self.device.click(GET_ITEMS_1)
             return True
         if self.appear(GET_ITEMS_2, interval=interval):
             if drop:
                 drop.handle_add(main=self, before=2)
-            logger.info(f'{GET_ITEMS_2} -> {CLICK_SAFE_AREA}')
-            self.device.click(CLICK_SAFE_AREA)
+            logger.info(f'{GET_ITEMS_2} -> {GET_ITEMS_2}')
+            self.device.click(GET_ITEMS_2)
             return True
         if self.appear(GET_ITEMS_3, interval=interval):
             if drop:
                 drop.handle_add(main=self, before=2)
-            logger.info(f'{GET_ITEMS_3} -> {CLICK_SAFE_AREA}')
-            self.device.click(CLICK_SAFE_AREA)
+            logger.info(f'{GET_ITEMS_3} -> {GET_ITEMS_3}')
+            self.device.click(GET_ITEMS_3)
             return True
         if self.appear(GET_ADAPTABILITY, interval=interval):
             if drop:
